@@ -1,0 +1,43 @@
+upstream app {
+    # Path to Unicorn SOCK file, as defined previously
+    server unix:/tmp/unicorn.<%= ENV['APP_NAME'] %>.sock fail_timeout=0;
+}
+
+server {
+    listen         80;
+    return 301 https://$host$request_uri;
+}
+
+server {
+
+    listen 443;
+
+    # Application root, as defined previously
+    # root /home/deployer/YOUR_APP_NAME/current/public;
+    root <%= ENV['APP_INSTALL_DIR'] %>;
+
+    ssl on;
+    ssl_certificate /etc/nginx/ssl/server.crt;
+    ssl_certificate_key /etc/nginx/ssl/server.key;
+
+    # server_name should just be hostname
+    # server_name www.<%= ENV['APP_HOSTNAME'] %> <%= ENV['APP_HOSTNAME'] %>;
+    server_name <%= ENV['APP_HOSTNAME'] %>;
+
+    try_files $uri/index.html $uri @app;
+
+    access_log /var/log/nginx/<%= ENV['APP_NAME'] %>_access.log combined;
+    error_log /var/log/nginx/<%= ENV['APP_NAME'] %>_error.log;
+
+    location @app {
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Host $http_host;
+        proxy_redirect off;
+        proxy_pass http://app;
+        proxy_set_header   X-Forwarded-Proto https;  # <-- don't need this if you're not running SSL
+    }
+
+    error_page 500 502 503 504 /500.html;
+    client_max_body_size 4G;
+    keepalive_timeout 10;
+}

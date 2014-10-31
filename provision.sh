@@ -21,6 +21,8 @@ fi
 #   Variables
 # =============================================================================
 
+export DEBIAN_FRONTEND=noninteractive
+
 # read variables from .env file if present
 if [[ -e ./.env ]]; then
   . ./.env
@@ -32,7 +34,8 @@ PROVISION_TMP_DIR=${PROVISION_TMP_DIR:-"/tmp/rails-4-provisioner"}
 LOG_FILE=$PROVISION_TMP_DIR/provision-$(date +%Y%m%d%H%M%S).log
 
 # set Rails environment
-export RAILS_ENV="development"
+export RAILS_ENV="${RAILS_ENV}"
+export APP_HOSTNAME="${APP_HOSTNAME}"
 
 # name of the Rails application to be installed
 export APP_NAME=${APP_NAME:-"rails-4-app"}
@@ -47,7 +50,7 @@ export APP_TEST_DB_USER=${APP_TEST_DB_USER:-"rails_4_user_test"}
 export APP_TEST_DB_PASS=${APP_TEST_DB_PASS:-"cH4nG3_p455w0rD_test"}
 
 # folder where the application will be installed
-export APP_INSTALL_DIR=${APP_INSTALL_DIR:-"/srv/webapps/$APP_NAME"}
+export APP_INSTALL_DIR=${APP_INSTALL_DIR}
 
 echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV}"
 
@@ -56,50 +59,21 @@ echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV
 #   Bootstrap
 # =============================================================================
 
+
 # create the output log file
 mkdir -p $PROVISION_TMP_DIR
 touch $LOG_FILE
 echo "Logging command output to $LOG_FILE"
 
+# raising permissions for deploy user
+  sudo /bin/bash -c "echo 'vagrant    ALL=(ALL:ALL) ALL' >> /etc/sudoers"
+
 # update packages and install some dependencies and tools
 echo "Updating packages..."
 {
   sudo apt-get update
-  sudo apt-get -y install build-essential zlib1g-dev curl libcurl4-openssl-dev git-core software-properties-common
+  sudo apt-get -y install build-essential zlib1g-dev curl libcurl4-openssl-dev git-core software-properties-common vim
 } >> $LOG_FILE 2>&1
-
-
-# =============================================================================
-#   Database (PostgreSQL)
-# =============================================================================
-
-# install PostgreSQL
-echo "Installing PostgreSQL..."
-sudo apt-get -y install postgresql postgresql-contrib libpq-dev >> $LOG_FILE 2>&1
-
-# change the default template encoding to utf8 or else Rails will complain
-echo "Converting default database template encoding to utf8..."
-sudo -u postgres psql < templates/sql/pg_utf8_template.sql >> $LOG_FILE 2>&1
-
-# create application's database user
-echo "Creating application's database users..."
-erb templates/sql/pg_create_app_users.sql.erb > $PROVISION_TMP_DIR/pg_create_app_users.sql.repl
-sudo -u postgres psql < $PROVISION_TMP_DIR/pg_create_app_users.sql.repl >> $LOG_FILE 2>&1
-
-
-# =============================================================================
-#   Javascript Runtime (Node.js)
-# =============================================================================
-
-# install node.js as a javascript runtime for rails
-echo "Installing Node.js as the javascript runtime..."
-{
-  sudo apt-get -y install python-software-properties python
-  sudo add-apt-repository -y ppa:chris-lea/node.js
-  sudo apt-get update
-  sudo apt-get -y install nodejs
-} >> $LOG_FILE 2>&1
-
 
 # =============================================================================
 #   Install Ruby 2
@@ -132,6 +106,119 @@ if [[ -z $(ruby -v | grep 2.1.2) ]]; then
   rm -rf ruby-2.1.2*
 fi
 
+# =============================================================================
+#   Web Server (Nginx)
+# =============================================================================
+
+# install Nginx web server
+echo "Installing Nginx web server..."
+{
+  sudo apt-get install -y nginx
+  sudo service nginx start
+} >> $LOG_FILE 2>&1
+
+echo "Creating nginx conf"
+{
+  erb templates/confs/nginx.conf.erb > $PROVISION_TMP_DIR/nginx.conf
+  sudo /bin/bash -c "cat $PROVISION_TMP_DIR/nginx.conf > /etc/nginx/nginx.conf"
+} >> $LOG_FILE 2>&1
+
+echo "Creating default site"
+{
+  erb templates/confs/default.erb > $PROVISION_TMP_DIR/default
+  # server_name should just be hostname
+  sudo /bin/bash -c "cat $PROVISION_TMP_DIR/default > /etc/nginx/sites-enabled/default"
+} >> $LOG_FILE 2>&1
+
+echo "SSL for Nginx"
+{
+  sudo mkdir -p /etc/nginx/ssl
+  sudo cp templates/ssl/server.crt /etc/nginx/ssl/server.crt
+  sudo cp templates/ssl/server.key /etc/nginx/ssl/server.key
+} >> $LOG_FILE 2>&1
+
+echo "Restarting Nginx"
+{
+  sudo service nginx restart
+} >> $LOG_FILE 2>&1
+
+# =============================================================================
+#  Redis
+# =============================================================================
+
+echo "Installing Redis"
+{
+  sudo apt-get install -y redis-server
+  sudo service redis-server start
+} >> $LOG_FILE 2>&1
+
+# =============================================================================
+#  Memcache
+# =============================================================================
+# installing memcache indexer
+echo "Installing Memcache"
+{
+  sudo apt-get install -y memcached
+  sudo service memcached start
+} >> $LOG_FILE 2>&1
+
+# =============================================================================
+#   Database (PostgreSQL)
+# =============================================================================
+
+# install PostgreSQL
+echo "Installing PostgreSQL..."
+#sudo apt-get -y install postgresql postgresql-contrib libpq-dev >> $LOG_FILE 2>&1
+sudo /bin/bash -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 postgresql-server-dev-9.3 libpq-dev
+
+# enable md5 auth for localhost
+sudo /bin/bash -c "sed -i.bak 's/local   all             postgres                                peer/local   all                 postgres                                trust/g' /etc/postgresql/9.3/main/pg_hba.conf"
+sudo /bin/bash -c "sed -i.bak 's/local   all             all                                     peer/local   all             all                                     trust/g' /etc/postgresql/9.3/main/pg_hba.conf"
+sudo service postgresql restart
+
+# change the default template encoding to utf8 or else Rails will complain
+echo "Converting default database template encoding to utf8..."
+sudo -u postgres psql < templates/sql/pg_utf8_template.sql >> $LOG_FILE 2>&1
+
+# create application's database user
+echo "Creating application's database users..."
+erb templates/sql/pg_create_app_users.sql.erb > $PROVISION_TMP_DIR/pg_create_app_users.sql.repl
+sudo -u postgres psql < $PROVISION_TMP_DIR/pg_create_app_users.sql.repl >> $LOG_FILE 2>&1
+
+
+# =============================================================================
+#   Javascript Runtime (Node.js)
+# =============================================================================
+
+# install node.js as a javascript runtime for rails
+echo "Installing Node.js as the javascript runtime..."
+{
+  sudo apt-get -y install python-software-properties python
+  sudo add-apt-repository -y ppa:chris-lea/node.js
+  sudo apt-get update
+  sudo apt-get -y install nodejs
+} >> $LOG_FILE 2>&1
+
+# =============================================================================
+#   Elasticsearch
+# =============================================================================
+# installing elasticsearch indexer
+# https://gist.github.com/wingdspur/2026107
+echo "Installing Elasticsearch..."
+{
+  sudo apt-get install openjdk-7-jre-headless -y
+ 
+ ### Check http://www.elasticsearch.org/download/ for latest version of ElasticSearch and replace wget link below
+  wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-1.3.2.deb
+  sudo dpkg -i elasticsearch-1.3.2.deb
+  sudo update-rc.d elasticsearch defaults 95 10
+  sudo /etc/init.d/elasticsearch start
+
+  # TODO: Ensure elasticsearch service is started
+} >> $LOG_FILE 2>&1
 
 # =============================================================================
 #   Install Rails App
@@ -146,8 +233,10 @@ bundle install >> $LOG_FILE 2>&1
 # create databases
 echo "Initializing application's database..."
 {
-  bundle exec rake db:create
-  bundle exec rake db:schema:load
+  bundle exec rake db:create RAILS_ENV=production
+  #bundle exec rake db:schema:load
+  bundle exec rake db:migrate RAILS_ENV=production
+  bundle exec rake indexers:all RAILS_ENV=production
 } >> $LOG_FILE 2>&1
 
 echo "Provisioning completed successfully!"
