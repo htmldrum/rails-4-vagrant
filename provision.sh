@@ -239,6 +239,10 @@ echo "Initializing application's database..."
   bundle exec rake indexers:all RAILS_ENV=production
 } >> $LOG_FILE 2>&1
 
+echo "starting unicorn" {
+  cd $APP_INSTALL_DIR
+  sudo -E bundle exec unicorn_rails -E production -c ./config/unicorn.rb &
+} >> $LOG_FILE 2>&1
+
 echo "Provisioning completed successfully!"
 exit 0
-
