@@ -1,0 +1,10 @@
+description "GNU/Unicorn daemon"
+
+start on runlevel [2]
+stop on runlevel [016]
+
+console owner
+script
+  exec /usr/local/bin/unicorn_rails -D -c <%= ENV['APP_INSTALL_DIR'] %>/config/unicorn.rb
+end script
+respawn

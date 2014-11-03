@@ -216,9 +216,8 @@ echo "Installing Elasticsearch..."
   sudo dpkg -i elasticsearch-1.3.2.deb
   sudo update-rc.d elasticsearch defaults 95 10
   sudo /etc/init.d/elasticsearch start
-
-  # TODO: Ensure elasticsearch service is started
 } >> $LOG_FILE 2>&1
+
 
 # =============================================================================
 #   Install Rails App
@@ -228,21 +227,46 @@ cd $APP_INSTALL_DIR
 
 # install application's gems
 echo "Installing application's gems..."
+cd $APP_INSTALL_DIR
 bundle install >> $LOG_FILE 2>&1
+
+# =============================================================================
+#  Unicorn 
+# =============================================================================
+
+echo "Installing unicorn as a service" 
+{
+  erb templates/confs/unicornd.conf.erb > $PROVISION_TMP_DIR/unicornd.conf
+  sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicornd.conf > /etc/init/unicornd.conf"
+  sudo /bin/bash -c "chmod 0644 /etc/init/unicornd.conf"
+  sudo /bin/bash -c "chown root:root /etc/init/unicornd.conf"
+
+} >> $LOG_FILE 2>&1
+
+echo "Writing unicorn conf" 
+{
+  erb templates/confs/unicorn.rb.erb > $PROVISION_TMP_DIR/unicorn.rb
+  sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicorn.rb > $APP_INSTALL_DIR/config/unicorn.rb"
+} >> $LOG_FILE 2>&1
 
 # create databases
 echo "Initializing application's database..."
 {
-  bundle exec rake db:create RAILS_ENV=production
+  RAILS_ENV=production bundle exec rake db:create
   #bundle exec rake db:schema:load
-  bundle exec rake db:migrate RAILS_ENV=production
-  bundle exec rake indexers:all RAILS_ENV=production
+  #RAILS_ENV=production bundle exec rake db:migrate
+  # Line will fail with rails-4-vagrant not in root
+  #RAILS_ENV=production bundle exec rake indexers:all
+  return 0;
 } >> $LOG_FILE 2>&1
 
-echo "starting unicorn" {
-  cd $APP_INSTALL_DIR
-  sudo -E bundle exec unicorn_rails -E production -c ./config/unicorn.rb &
-} >> $LOG_FILE 2>&1
+echo "__FINISHED__"
+
+#echo "Installing unicorn as a service" {
+  #cd $APP_INSTALL_DIR
+  #sudo -E bundle exec unicorn_rails -E production -c ./config/unicorn.rb &
+#} >> $LOG_FILE 2>&1
+
 
 echo "Provisioning completed successfully!"
 exit 0

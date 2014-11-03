@@ -1,6 +1,12 @@
+
+##
+# TODO: Instead of relying on default.erb, separate each app into its own .conf file to be included in sites-avaiable, symlinked to sites-enabled
+##
+
 upstream app {
     # Path to Unicorn SOCK file, as defined previously
-    server unix:/tmp/unicorn.<%= ENV['APP_NAME'] %>.sock fail_timeout=0;
+    #server unix:/tmp/unicorn.<%= ENV['APP_NAME'] %>.sock fail_timeout=0;
+    server unix:<%= ENV['APP_INSTALL_DIR'] %>/tmp/sockets/unicorn.sock fail_timeout=15;
 }
 
 server {
@@ -14,6 +20,8 @@ server {
 
     # Application root, as defined previously
     # root /home/deployer/YOUR_APP_NAME/current/public;
+    # TODO: Consider below
+    #root <%= ENV['APP_INSTALL_DIR'] %>/public;
     root <%= ENV['APP_INSTALL_DIR'] %>;
 
     ssl on;
@@ -21,7 +29,6 @@ server {
     ssl_certificate_key /etc/nginx/ssl/server.key;
 
     # server_name should just be hostname
-    # server_name www.<%= ENV['APP_HOSTNAME'] %> <%= ENV['APP_HOSTNAME'] %>;
     server_name <%= ENV['APP_HOSTNAME'] %>;
 
     try_files $uri/index.html $uri @app;
