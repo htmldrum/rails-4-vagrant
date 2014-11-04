@@ -9,7 +9,7 @@ timeout 30
 
 # Fill path to your app
 # working_directory app_dir
-working_directory <%= ENV['APP_INSTALL_DIR'] %>
+working_directory "<%= ENV['APP_INSTALL_DIR'] %>"
 
 # Set up socket location
 listen "<%= ENV['APP_INSTALL_DIR'] %>/tmp/sockets/unicorn.sock", :backlog => 64

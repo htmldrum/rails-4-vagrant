@@ -54,11 +54,12 @@ export APP_INSTALL_DIR=${APP_INSTALL_DIR}
 
 echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV}"
 
-
 # =============================================================================
 #   Bootstrap
 # =============================================================================
 
+mkdir -p $APP_INSTALL_DIR
+cp -R /vagrant/rails-4-app
 
 # create the output log file
 mkdir -p $PROVISION_TMP_DIR
@@ -219,16 +220,7 @@ echo "Installing Elasticsearch..."
 } >> $LOG_FILE 2>&1
 
 
-# =============================================================================
-#   Install Rails App
-# =============================================================================
 
-cd $APP_INSTALL_DIR
-
-# install application's gems
-echo "Installing application's gems..."
-cd $APP_INSTALL_DIR
-bundle install >> $LOG_FILE 2>&1
 
 # =============================================================================
 #  Unicorn 
@@ -240,7 +232,6 @@ echo "Installing unicorn as a service"
   sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicornd.conf > /etc/init/unicornd.conf"
   sudo /bin/bash -c "chmod 0644 /etc/init/unicornd.conf"
   sudo /bin/bash -c "chown root:root /etc/init/unicornd.conf"
-
 } >> $LOG_FILE 2>&1
 
 echo "Writing unicorn conf" 
@@ -249,24 +240,27 @@ echo "Writing unicorn conf"
   sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicorn.rb > $APP_INSTALL_DIR/config/unicorn.rb"
 } >> $LOG_FILE 2>&1
 
-# create databases
+# =============================================================================
+#   Install Rails App
+# =============================================================================
+
+echo "Installing application's gems..."
+cd $APP_INSTALL_DIR
+bundle install >> $LOG_FILE 2>&1
+
 echo "Initializing application's database..."
 {
-  RAILS_ENV=production bundle exec rake db:create
+  # TODO: Work out what commands need to be run past this 
+  # TODO: Replace this with just a load of ./db/data.dump
+  # Tell the rails app to behave as normally
+  #RAILS_ENV=production bundle exec rake db:create
   #bundle exec rake db:schema:load
   #RAILS_ENV=production bundle exec rake db:migrate
   # Line will fail with rails-4-vagrant not in root
   #RAILS_ENV=production bundle exec rake indexers:all
-  return 0;
 } >> $LOG_FILE 2>&1
 
 echo "__FINISHED__"
-
-#echo "Installing unicorn as a service" {
-  #cd $APP_INSTALL_DIR
-  #sudo -E bundle exec unicorn_rails -E production -c ./config/unicorn.rb &
-#} >> $LOG_FILE 2>&1
-
 
 echo "Provisioning completed successfully!"
 exit 0
