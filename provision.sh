@@ -58,8 +58,14 @@ echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV
 #   Bootstrap
 # =============================================================================
 
-mkdir -p $APP_INSTALL_DIR
-cp -R /vagrant/rails-4-app
+# Loading source onto machine, replace this with git on opsworks
+sudo mkdir -p $APP_INSTALL_DIR
+#sudo cp -R "/vagrant/${APP_NAME}/"* $APP_INSTALL_DIR
+sudo cp -R /vagrant/${APP_NAME}/* $APP_INSTALL_DIR
+
+# Perms
+sudo chmod a+wrx /var/www/rails-4-app/tmp/{cache,pids,sessions,sockets}/
+sudo chmod a+wrx /var/www/rails-4-app/log/
 
 # create the output log file
 mkdir -p $PROVISION_TMP_DIR
@@ -219,19 +225,23 @@ echo "Installing Elasticsearch..."
   sudo /etc/init.d/elasticsearch start
 } >> $LOG_FILE 2>&1
 
-
-
-
 # =============================================================================
 #  Unicorn 
 # =============================================================================
 
 echo "Installing unicorn as a service" 
 {
-  erb templates/confs/unicornd.conf.erb > $PROVISION_TMP_DIR/unicornd.conf
-  sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicornd.conf > /etc/init/unicornd.conf"
-  sudo /bin/bash -c "chmod 0644 /etc/init/unicornd.conf"
-  sudo /bin/bash -c "chown root:root /etc/init/unicornd.conf"
+  #erb templates/confs/unicornd.conf.erb > $PROVISION_TMP_DIR/unicornd.conf
+  #sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicornd.conf > /etc/init/unicornd.conf"
+  #sudo /bin/bash -c "chmod 0644 /etc/init/unicornd.conf"
+  #sudo /bin/bash -c "chown root:root /etc/init/unicornd.conf"
+
+  erb templates/confs/unicorn_init.sh.erb > $PROVISION_TMP_DIR/unicorn_init.sh
+  sudo /bin/bash -c "cat $PROVISION_TMP_DIR/unicorn_init.sh > /etc/init.d/unicorn_init.sh"
+  sudo /bin/bash -c "chmod 0755 /etc/init.d/unicorn_init.sh"
+  sudo /bin/bash -c "chown root:root /etc/init.d/unicorn_init.sh"
+  sudo /bin/bash -c "ln -s /etc/init.d/unicorn_init.sh /etc/init.d/unicorn"
+  #sudo update-rc.d unicorn defaults
 } >> $LOG_FILE 2>&1
 
 echo "Writing unicorn conf" 
@@ -248,17 +258,33 @@ echo "Installing application's gems..."
 cd $APP_INSTALL_DIR
 bundle install >> $LOG_FILE 2>&1
 
+# Triggering restart on unicorn after gems installed
+sudo update-rc.d unicorn defaults
+
 echo "Initializing application's database..."
 {
   # TODO: Work out what commands need to be run past this 
   # TODO: Replace this with just a load of ./db/data.dump
   # Tell the rails app to behave as normally
-  #RAILS_ENV=production bundle exec rake db:create
+  RAILS_ENV=production bundle exec rake db:create
   #bundle exec rake db:schema:load
-  #RAILS_ENV=production bundle exec rake db:migrate
+  RAILS_ENV=production bundle exec rake db:migrate
   # Line will fail with rails-4-vagrant not in root
   #RAILS_ENV=production bundle exec rake indexers:all
+
+  # TODO: Load .sql in repo
+  # Begin reindex
+
 } >> $LOG_FILE 2>&1
+
+# Starting app
+echo "Starting app" >> $LOG_FILE 2>&1
+sudo service unicorn start >> $LOG_FILE 2>&1
+
+# TODO: Move in elasticsearch repo
+# Ensure all bundle services start/restart
+# Write psql > inject job
+# Kick off indexers
 
 echo "__FINISHED__"
 

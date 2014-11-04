@@ -4,8 +4,6 @@
 ##
 
 upstream app {
-    # Path to Unicorn SOCK file, as defined previously
-    #server unix:/tmp/unicorn.<%= ENV['APP_NAME'] %>.sock fail_timeout=0;
     server unix:<%= ENV['APP_INSTALL_DIR'] %>/tmp/sockets/unicorn.sock fail_timeout=15;
 }
 
