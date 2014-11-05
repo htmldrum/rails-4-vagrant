@@ -51,6 +51,9 @@ export APP_TEST_DB_PASS=${APP_TEST_DB_PASS:-"cH4nG3_p455w0rD_test"}
 
 # folder where the application will be installed
 export APP_INSTALL_DIR=${APP_INSTALL_DIR}
+export S3_ARCHIVE=${S3_ARCHIVE}
+export AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
 echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV}"
 
@@ -114,6 +117,16 @@ if [[ -z $(ruby -v | grep 2.1.2) ]]; then
   cd ..
   rm -rf ruby-2.1.2*
 fi
+
+# =============================================================================
+#  s3cmd
+# =============================================================================
+echo "Installing s3cmd"
+{
+  sudo apt-get install -y s3cmd
+  erb templates/confs/.s3cfg.erb > /tmp/.s3cfg
+  s3cmd -c /tmp/.s3cfg get --force s3://ms.deploy/$APP_HOSTNAME/site-backup.tgz /tmp/site-backup.tgz
+} >> $LOG_FILE 2>&1
 
 # =============================================================================
 #  Sqlite3
@@ -272,23 +285,21 @@ sudo update-rc.d unicorn defaults
 
 echo "Initializing application's database..."
 {
-  # TODO: Work out what commands need to be run past this 
-  # TODO: Replace this with just a load of ./db/data.dump
-  # Tell the rails app to behave as normally
-  RAILS_ENV=production bundle exec rake db:create
-  #bundle exec rake db:schema:load
-  # Replace this line with shotgunning the SQL from an S3 bucket here
-  RAILS_ENV=production bundle exec rake db:migrate
-  #RAILS_ENV=production bundle exec rake indexers:all
+  sudo RAILS_ENV=production bundle exec rake db:create
 
-  # TODO: Load .sql in repo
-  # Begin reindex
+  #sudo RAILS_ENV=production bundle exec rake db:reset
+  # INJECT SQL
+  #bundle exec rake db:schema:load
+
+  sudo RAILS_ENV=production bundle exec rake assets:precompile --trace
+  sudo RAILS_ENV=production bundle exec indexers:all
 
 } >> $LOG_FILE 2>&1
 
 # Starting app
 echo "Starting app" >> $LOG_FILE 2>&1
 sudo service unicorn start >> $LOG_FILE 2>&1
+sudo service nginx restart
 
 # TODO: Move in elasticsearch repo
 # Ensure all bundle services start/restart
