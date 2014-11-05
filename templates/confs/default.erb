@@ -19,8 +19,8 @@ server {
     # Application root, as defined previously
     # root /home/deployer/YOUR_APP_NAME/current/public;
     # TODO: Consider below
-    #root <%= ENV['APP_INSTALL_DIR'] %>/public;
-    root <%= ENV['APP_INSTALL_DIR'] %>;
+    #root <%= ENV['APP_INSTALL_DIR'] %>;
+    root <%= ENV['APP_INSTALL_DIR'] %>/public;
 
     ssl on;
     ssl_certificate /etc/nginx/ssl/server.crt;

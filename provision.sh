@@ -125,7 +125,7 @@ echo "Installing s3cmd"
 {
   sudo apt-get install -y s3cmd
   erb templates/confs/.s3cfg.erb > /tmp/.s3cfg
-  s3cmd -c /tmp/.s3cfg get --force s3://ms.deploy/$APP_HOSTNAME/site-backup.tgz /tmp/site-backup.tgz
+  s3cmd -c /tmp/.s3cfg get --force s3://ms.deploy/$APP_HOSTNAME/db.dump /tmp/db.dump
 } >> $LOG_FILE 2>&1
 
 # =============================================================================
@@ -283,23 +283,20 @@ bundle install >> $LOG_FILE 2>&1
 # Triggering restart on unicorn after gems installed
 sudo update-rc.d unicorn defaults
 
+# Stopping servers to run migrations
+sudo service unicorn stop >> $LOG_FILE 2>&1
+sudo service nginx stop >> $LOG_FILE 2>&1
+
 echo "Initializing application's database..."
 {
-  sudo RAILS_ENV=production bundle exec rake db:create
-
-  #sudo RAILS_ENV=production bundle exec rake db:reset
-  # INJECT SQL
-  #bundle exec rake db:schema:load
-
-  sudo RAILS_ENV=production bundle exec rake assets:precompile --trace
+  sudo RAILS_ENV=production bundle exec rake db:reset db:create db:migrate db:restore
   sudo RAILS_ENV=production bundle exec indexers:all
-
 } >> $LOG_FILE 2>&1
 
 # Starting app
 echo "Starting app" >> $LOG_FILE 2>&1
 sudo service unicorn start >> $LOG_FILE 2>&1
-sudo service nginx restart
+sudo service nginx start >> $LOG_FILE 2>&1
 
 # TODO: Move in elasticsearch repo
 # Ensure all bundle services start/restart
