@@ -30,7 +30,7 @@ if [[ -e ./.env ]]; then
 fi
 
 # log file receiving all command output
-PROVISION_TMP_DIR=${PROVISION_TMP_DIR:-"/tmp/rails-4-provisioner"}
+PROVISION_TMP_DIR=${PROVISION_TMP_DIR:-"/tmp/provisioner"}
 LOG_FILE=$PROVISION_TMP_DIR/provision-$(date +%Y%m%d%H%M%S).log
 
 # set Rails environment
@@ -38,7 +38,7 @@ export RAILS_ENV="${RAILS_ENV}"
 export APP_HOSTNAME="${APP_HOSTNAME}"
 
 # name of the Rails application to be installed
-export APP_NAME=${APP_NAME:-"rails-4-app"}
+export APP_NAME=${APP_NAME:-"app"}
 
 # application's database details
 export APP_DB_NAME=${APP_DB_NAME:-"rails_4_db"}
@@ -64,8 +64,10 @@ sudo mkdir -p $APP_INSTALL_DIR
 sudo cp -R /vagrant/${APP_NAME}/* $APP_INSTALL_DIR
 
 # Perms
-sudo chmod a+wrx /var/www/rails-4-app/tmp/{cache,pids,sessions,sockets}/
-sudo chmod a+wrx /var/www/rails-4-app/log/
+sudo mkdir -p ${APP_INSTALL_DIR}/tmp/{cache,pids,sessions,sockets}/
+sudo mkdir -p ${APP_INSTALL_DIR}/log/
+sudo chmod a+wrx ${APP_INSTALL_DIR}/tmp/{cache,pids,sessions,sockets}/
+sudo chmod a+wrx ${APP_INSTALL_DIR}/log/
 
 # create the output log file
 mkdir -p $PROVISION_TMP_DIR
@@ -112,6 +114,14 @@ if [[ -z $(ruby -v | grep 2.1.2) ]]; then
   cd ..
   rm -rf ruby-2.1.2*
 fi
+
+# =============================================================================
+#  Sqlite3
+# =============================================================================
+echo "Installing Sqlite3"
+{
+  sudo apt-get install -y libsqlite3-dev
+} >> $LOG_FILE 2>&1
 
 # =============================================================================
 #   Web Server (Nginx)
@@ -162,7 +172,6 @@ echo "Installing Redis"
 # =============================================================================
 #  Memcache
 # =============================================================================
-# installing memcache indexer
 echo "Installing Memcache"
 {
   sudo apt-get install -y memcached
@@ -268,8 +277,8 @@ echo "Initializing application's database..."
   # Tell the rails app to behave as normally
   RAILS_ENV=production bundle exec rake db:create
   #bundle exec rake db:schema:load
+  # Replace this line with shotgunning the SQL from an S3 bucket here
   RAILS_ENV=production bundle exec rake db:migrate
-  # Line will fail with rails-4-vagrant not in root
   #RAILS_ENV=production bundle exec rake indexers:all
 
   # TODO: Load .sql in repo

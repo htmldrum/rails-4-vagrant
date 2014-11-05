@@ -11,6 +11,7 @@ GRANT ALL PRIVILEGES ON DATABASE <%= ENV['APP_DB_NAME'] %>_<%= ENV['RAILS_ENV'] 
 
 -- including this one so we can rake db:drop and such
 ALTER USER <%= ENV['APP_DB_USER'] %> WITH CREATEDB;
+ALTER USER <%= ENV['APP_DB_USER'] %> WITH SUPERUSER; -- required to create pg extensions
 
 -- don't need this anymore; let Rails handle DB creation
 DROP DATABASE <%= ENV['APP_DB_NAME'] %>;
