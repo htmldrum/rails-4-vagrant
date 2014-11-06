@@ -289,6 +289,8 @@ sudo service nginx stop >> $LOG_FILE 2>&1
 
 echo "Initializing application's database..."
 {
+  # TODO: Consider below instead
+  #sudo RAILS_ENV=production bundle exec rake db:restore
   sudo RAILS_ENV=production bundle exec rake db:reset db:create db:migrate db:restore
   sudo RAILS_ENV=production bundle exec indexers:all
 } >> $LOG_FILE 2>&1
