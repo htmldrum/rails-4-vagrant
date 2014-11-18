@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+>#!/usr/bin/env bash
 #
 # Provisions an Ubuntu server with Rails 4, on Ruby 2.1.2, for a development environment.
 #
@@ -35,6 +35,7 @@ LOG_FILE=$PROVISION_TMP_DIR/provision-$(date +%Y%m%d%H%M%S).log
 
 # set Rails environment
 export RAILS_ENV="${RAILS_ENV}"
+
 export APP_HOSTNAME="${APP_HOSTNAME}"
 
 # name of the Rails application to be installed
@@ -44,6 +45,9 @@ export APP_NAME=${APP_NAME:-"app"}
 export APP_DB_NAME=${APP_DB_NAME:-"rails_4_db"}
 export APP_DB_USER=${APP_DB_USER:-"rails_4_user"}
 export APP_DB_PASS=${APP_DB_PASS:-"cH4nG3_p455w0rD"} # you should provide your own passwords
+
+#export APP_DB_USER="example"
+#export APP_DB_PASS="example" # you should provide your own passwords
 
 export APP_TEST_DB_NAME=${APP_TEST_DB_NAME:-"rails_4_db_test"}
 export APP_TEST_DB_USER=${APP_TEST_DB_USER:-"rails_4_user_test"}
@@ -62,9 +66,14 @@ echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV
 # =============================================================================
 
 # Loading source onto machine, replace this with git on opsworks
+ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 sudo mkdir -p $APP_INSTALL_DIR
-#sudo cp -R "/vagrant/${APP_NAME}/"* $APP_INSTALL_DIR
-sudo cp -R /vagrant/${APP_NAME}/* $APP_INSTALL_DIR
+sudo chown vagrant $APP_INSTALL_DIR
+
+sudo apt-get -y install git
+git clone git@github.com:mshanken/Elasticsearch.git $APP_INSTALL_DIR
+
+#sudo cp -R /vagrant/${APP_NAME}/* $APP_INSTALL_DIR
 
 # Perms
 sudo mkdir -p ${APP_INSTALL_DIR}/tmp/{cache,pids,sessions,sockets}/
@@ -289,10 +298,8 @@ sudo service nginx stop >> $LOG_FILE 2>&1
 
 echo "Initializing application's database..."
 {
-  # TODO: Consider below instead
-  #sudo RAILS_ENV=production bundle exec rake db:restore
-  sudo RAILS_ENV=production bundle exec rake db:reset db:create db:migrate db:restore
-  sudo RAILS_ENV=production bundle exec indexers:all
+  bundle exec rake db:restore
+  bundle exec rake indexers:clean
 } >> $LOG_FILE 2>&1
 
 # Starting app
@@ -309,3 +316,4 @@ echo "__FINISHED__"
 
 echo "Provisioning completed successfully!"
 exit 0
+
