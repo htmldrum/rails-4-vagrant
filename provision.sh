@@ -1,4 +1,4 @@
->#!/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Provisions an Ubuntu server with Rails 4, on Ruby 2.1.2, for a development environment.
 #
