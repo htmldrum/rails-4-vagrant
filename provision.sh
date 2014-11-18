@@ -32,6 +32,7 @@ fi
 # log file receiving all command output
 PROVISION_TMP_DIR=${PROVISION_TMP_DIR:-"/tmp/provisioner"}
 LOG_FILE=$PROVISION_TMP_DIR/provision-$(date +%Y%m%d%H%M%S).log
+sudo chown vagrant $APP_INSTALL_DIR
 
 # set Rails environment
 export RAILS_ENV="${RAILS_ENV}"
@@ -68,7 +69,6 @@ echo "Provisioning for application: ${APP_INSTALL_DIR}, environment: ${RAILS_ENV
 # Loading source onto machine, replace this with git on opsworks
 ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 sudo mkdir -p $APP_INSTALL_DIR
-sudo chown vagrant $APP_INSTALL_DIR
 
 sudo apt-get -y install git
 git clone git@github.com:mshanken/Elasticsearch.git $APP_INSTALL_DIR
@@ -87,7 +87,7 @@ touch $LOG_FILE
 echo "Logging command output to $LOG_FILE"
 
 # raising permissions for deploy user
-  sudo /bin/bash -c "echo 'vagrant    ALL=(ALL:ALL) ALL' >> /etc/sudoers"
+#  sudo /bin/bash -c "echo 'vagrant    ALL=(ALL:ALL) ALL' >> /etc/sudoers"
 
 # update packages and install some dependencies and tools
 echo "Updating packages..."
