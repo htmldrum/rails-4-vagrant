@@ -32,7 +32,8 @@ fi
 # log file receiving all command output
 PROVISION_TMP_DIR=${PROVISION_TMP_DIR:-"/tmp/provisioner"}
 LOG_FILE=$PROVISION_TMP_DIR/provision-$(date +%Y%m%d%H%M%S).log
-sudo chown vagrant $APP_INSTALL_DIR
+
+#sudo chown vagrant $APP_INSTALL_DIR
 
 # set Rails environment
 export RAILS_ENV="${RAILS_ENV}"
