@@ -11,10 +11,10 @@
 set -e
 
 # protect against execution as root
-if [ "$(id -u)" == "0" ]; then
-   echo "Please run this script as a regular user with sudo privileges." 1>&2
-   exit 1
-fi
+# if [ "$(id -u)" == "0" ]; then
+#    echo "Please run this script as a regular user with sudo privileges." 1>&2
+#    exit 1
+# fi
 
 
 # =============================================================================
