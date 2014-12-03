@@ -300,7 +300,8 @@ sudo service nginx stop >> $LOG_FILE 2>&1
 echo "Initializing application's database..."
 {
   bundle exec rake db:restore
-  bundle exec rake indexers:clean
+  bundle exec rake indexers:destroy
+  bundle exec rake indexers:create
 } >> $LOG_FILE 2>&1
 
 # Starting app
