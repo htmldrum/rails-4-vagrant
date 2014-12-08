@@ -297,6 +297,9 @@ sudo update-rc.d unicorn defaults
 sudo service unicorn stop >> $LOG_FILE 2>&1
 sudo service nginx stop >> $LOG_FILE 2>&1
 
+echo "Starting sidekiq"
+bundle exec sidekiq -d -L log/sidekiq.log -q elasticsearch
+
 echo "Initializing application's database..."
 {
   bundle exec rake db:restore
